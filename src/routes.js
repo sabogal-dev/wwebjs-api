@@ -2,7 +2,7 @@ const express = require('express')
 const routes = express.Router()
 const swaggerUi = require('swagger-ui-express')
 const swaggerDocument = require('../swagger.json')
-const { enableLocalCallbackExample, enableSwaggerEndpoint } = require('./config')
+const { enableLocalCallbackExample, enableSwaggerEndpoint, enableMultiUser } = require('./config')
 
 const middleware = require('./middleware')
 const healthController = require('./controllers/healthController')
@@ -13,6 +13,20 @@ const groupChatController = require('./controllers/groupChatController')
 const messageController = require('./controllers/messageController')
 const contactController = require('./controllers/contactController')
 const channelController = require('./controllers/channelController')
+
+// Multi-user authentication routes
+const authRoutes = require('./routes/authRoutes')
+const userRoutes = require('./routes/userRoutes')
+
+/**
+ * ================
+ * AUTHENTICATION ENDPOINTS (Multi-user mode)
+ * ================
+ */
+if (enableMultiUser) {
+  routes.use('/auth', authRoutes)
+  routes.use('/users/me', userRoutes)
+}
 
 /**
  * ================

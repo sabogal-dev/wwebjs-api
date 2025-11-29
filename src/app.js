@@ -1,5 +1,6 @@
 require('./routes')
 const express = require('express')
+const cors = require('cors')
 const { routes } = require('./routes')
 const { maxAttachmentSize, basePath, trustProxy } = require('./config')
 
@@ -12,6 +13,9 @@ app.disable('x-powered-by')
 if (trustProxy) {
   app.set('trust proxy', true)
 }
+
+// Enable CORS
+app.use(cors())
 
 app.use(express.json({ limit: maxAttachmentSize + 1000000 }))
 app.use(express.urlencoded({ limit: maxAttachmentSize + 1000000, extended: true }))

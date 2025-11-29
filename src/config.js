@@ -26,6 +26,20 @@ const autoStartSessions = process.env.AUTO_START_SESSIONS ? (process.env.AUTO_ST
 const basePath = process.env.BASE_PATH || '/'
 const trustProxy = process.env.TRUST_PROXY ? (process.env.TRUST_PROXY).toLowerCase() === 'true' : false
 
+// MySQL Database Configuration
+const dbHost = process.env.DB_HOST || 'localhost'
+const dbPort = parseInt(process.env.DB_PORT) || 3306
+const dbUser = process.env.DB_USER || 'root'
+const dbPassword = process.env.DB_PASSWORD || 'Sabogal.033'
+const dbName = process.env.DB_NAME || 'wwebjs_api'
+
+// Multi-user Authentication Configuration
+const enableMultiUser = process.env.ENABLE_MULTI_USER ? (process.env.ENABLE_MULTI_USER).toLowerCase() === 'true' : false
+const maxSessionsPerUser = parseInt(process.env.MAX_SESSIONS_PER_USER) || 5
+const jwtSecret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production'
+const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '30d'
+const defaultApiCallsLimit = parseInt(process.env.DEFAULT_API_CALLS_LIMIT) || 1000
+
 module.exports = {
   servicePort,
   sessionFolderPath,
@@ -49,5 +63,17 @@ module.exports = {
   enableWebSocket,
   autoStartSessions,
   basePath,
-  trustProxy
+  trustProxy,
+  // MySQL Database
+  dbHost,
+  dbPort,
+  dbUser,
+  dbPassword,
+  dbName,
+  // Multi-user
+  enableMultiUser,
+  maxSessionsPerUser,
+  jwtSecret,
+  jwtExpiresIn,
+  defaultApiCallsLimit
 }

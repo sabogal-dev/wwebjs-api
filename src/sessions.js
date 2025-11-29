@@ -2,7 +2,8 @@ const { Client, LocalAuth } = require('whatsapp-web.js')
 const fs = require('fs')
 const path = require('path')
 const sessions = new Map()
-const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions, chromeBin, headless, releaseBrowserLock } = require('./config')
+const sessionMetadata = new Map() // Stores { userId, createdAt, metadata }
+const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions, chromeBin, headless, releaseBrowserLock, enableMultiUser } = require('./config')
 const { triggerWebhook, waitForNestedObject, isEventEnabled, sendMessageSeenStatus, sleep, patchWWebLibrary } = require('./utils')
 const { logger } = require('./logger')
 const { initWebSocketServer, terminateWebSocketServer, triggerWebSocket } = require('./websocket')
@@ -61,11 +62,33 @@ const validateSession = async (sessionId) => {
 }
 
 // Function to handle client session restoration
-const restoreSessions = () => {
+const restoreSessions = async () => {
   try {
     if (!fs.existsSync(sessionFolderPath)) {
       fs.mkdirSync(sessionFolderPath) // Create the session directory if it doesn't exist
     }
+    
+    // If multi-user enabled, restore from database
+    if (enableMultiUser) {
+      try {
+        const { db } = require('./database')
+        const activeSessions = await db('whatsapp_sessions')
+          .whereIn('status', ['active', 'inactive'])
+          .select('session_id', 'user_id')
+        
+        logger.info({ count: activeSessions.length }, 'Restoring sessions from database')
+        
+        for (const session of activeSessions) {
+          logger.warn({ sessionId: session.session_id, userId: session.user_id }, 'Restoring session')
+          await setupSession(session.session_id, session.user_id)
+        }
+        return
+      } catch (error) {
+        logger.error({ err: error }, 'Failed to restore sessions from database, falling back to filesystem')
+      }
+    }
+    
+    // Fallback to filesystem-based restoration (legacy mode)
     // Read the contents of the folder
     fs.readdir(sessionFolderPath, async (_, files) => {
       // Iterate through the files in the parent folder
@@ -85,12 +108,12 @@ const restoreSessions = () => {
 }
 
 // Setup Session
-const setupSession = async (sessionId) => {
+const setupSession = async (sessionId, userId = null) => {
   try {
     if (sessions.has(sessionId)) {
       return { success: false, message: `Session already exists for: ${sessionId}`, client: sessions.get(sessionId) }
     }
-    logger.info({ sessionId }, 'Session is being initiated')
+    logger.info({ sessionId, userId }, 'Session is being initiated')
     // Disable the delete folder from the logout function (will be handled separately)
     const localAuth = new LocalAuth({ clientId: sessionId, dataPath: sessionFolderPath })
     delete localAuth.logout
@@ -192,6 +215,17 @@ const setupSession = async (sessionId) => {
 
     // Save the session to the Map
     sessions.set(sessionId, client)
+    
+    // Save metadata if multi-user is enabled
+    if (enableMultiUser && userId) {
+      sessionMetadata.set(sessionId, {
+        userId,
+        createdAt: new Date(),
+        metadata: {}
+      })
+      logger.info({ sessionId, userId }, 'Session metadata stored')
+    }
+    
     return { success: true, message: 'Session initiated successfully', client }
   } catch (error) {
     return { success: false, message: error.message, client: null }
@@ -591,6 +625,7 @@ const flushSessions = async (deleteOnlyInactive) => {
 
 module.exports = {
   sessions,
+  sessionMetadata,
   setupSession,
   restoreSessions,
   validateSession,
